@@ -6,9 +6,16 @@
   var cfg = window.__shellConfig || {};
   var root = document.documentElement;
   root.classList.add('app-shell');
+  root.setAttribute('data-shell', cfg.mode || 'ios');  // :root[data-shell="android"] scopes a rule to one platform
 
-  var bridge = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.shell;
-  function post(msg) { if (bridge) bridge.postMessage(msg); }
+  /* iOS: WKScriptMessageHandler "shell". Android: a WebMessageListener named
+   * "protoShell" (strings only, so JSON). Web mode: no native side. */
+  var ios = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.shell;
+  var android = window.protoShell && typeof window.protoShell.postMessage === 'function' ? window.protoShell : null;
+  function post(msg) {
+    if (ios) ios.postMessage(msg);
+    else if (android) android.postMessage(JSON.stringify(msg));
+  }
 
   function all(selector) {
     try { return Array.prototype.slice.call(document.querySelectorAll(selector)); } catch (e) { return []; }
@@ -31,6 +38,34 @@
       });
     }
   };
+
+  /* Web mode (opened in the phone's browser, no app around it): there is no
+   * native keyboard event, so the visual viewport tells. A keyboard takes
+   * more than a quarter of the screen; browser bars do not. */
+  if (cfg.mode === 'web' && window.visualViewport) {
+    var vv = window.visualViewport, kbUp = false;
+    /* Mobile browsers do not shrink the page for the keyboard: they pan the
+     * visible area over it. The design is sized to the visible area
+     * (--shell-vh) and moved to where it is (--shell-vy), so it sits above the
+     * keyboard like in the app. A fixed element is placed against the layout
+     * viewport, and vv.offsetTop is where the visible area starts in it. */
+    var place = function () {
+      if (!kbUp) return;
+      root.style.setProperty('--shell-vh', Math.round(vv.height) + 'px');
+      root.style.setProperty('--shell-vy', Math.round(vv.offsetTop) + 'px');
+    };
+    var check = function () {
+      var up = vv.height < window.innerHeight * 0.75 ||
+               (screen.height && vv.height < screen.height * 0.6 && isEditable(document.activeElement));
+      if (up !== kbUp) { kbUp = up; window.__shell.keyboard(up); }
+      if (up) place();
+      else { root.style.removeProperty('--shell-vh'); root.style.removeProperty('--shell-vy'); }
+    };
+    vv.addEventListener('scroll', place);
+    vv.addEventListener('resize', check);
+    document.addEventListener('focusin', function () { setTimeout(check, 350); });
+    document.addEventListener('focusout', function () { setTimeout(check, 350); });
+  }
 
   /* A programmatic focus move (a sheet closing and handing focus back to its
    * button) does not dismiss the real keyboard: ask the shell to. */
@@ -71,6 +106,10 @@
     if (key === last) return;
     last = key;
     post(msg);
+    // the browser (web mode) and Android's task color read theme-color
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (!meta) { meta = document.createElement('meta'); meta.name = 'theme-color'; document.head.appendChild(meta); }
+    meta.content = 'rgb(' + d[0] + ',' + d[1] + ',' + d[2] + ')';
   }
   function watchTheme() {
     var again = function () { requestAnimationFrame(report); };

@@ -154,3 +154,22 @@ Last resort for prototype JS or HTML that cannot be fixed with CSS, written as a
 `find` must occur exactly once (`"all": true` for every occurrence, `"optional": true` to skip when absent).
 A miss stops the build with the patch name: that is the point; a redesign that moved the anchor is caught
 before it reaches the phone.
+
+## 10. Web mode (the phone's browser)
+
+Everything above applies, with these differences:
+
+| Topic | In web mode |
+|---|---|
+| Keyboard | The browser pans the page instead of shrinking it. `shell.js` reads the visible area (`visualViewport`), sets `kb-open`, sizes the device to it (`--shell-vh`) and pins it there (`--shell-vy`). The browser's own toolbar above the keyboard (`^ v ✓` on iPhone) and its address bar stay: they belong to the browser |
+| Bars | Add to the home screen to remove the address bar. In a tab, the browser's bars cover part of the screen |
+| Safe areas | `env(safe-area-inset-*)` works with `viewport-fit=cover` (set) |
+| Theme | `theme-color` follows the page background |
+| Not available | Hiding the browser's keyboard toolbar. Sheet drag uses the same JS, but the browser may scroll the page instead |
+
+## 11. Android notes (experimental)
+
+The Android shell pads the page by the status bar, the navigation bar, the cutout and the keyboard, so inside
+the page the safe areas are 0 and `--shell-float-bottom` is 16. A floating tab bar sits 16 above the system
+navigation; check it looks right in the emulator, and adjust with a rule scoped to Android if needed, for
+example `:root[data-shell="android"] .tabbar{padding-bottom:12px}`. `data-shell` is `ios`, `android` or `web`.

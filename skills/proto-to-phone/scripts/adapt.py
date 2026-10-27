@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Adapt a single-file HTML prototype to the native iOS shell.
 
-Usage: adapt.py <source.html> <dest.html> [--config phone.config.json]
+Usage: adapt.py <source.html> <dest.html> [--config phone.config.json] [--target ios|android|web]
 
 Writes <dest.html> and, next to it, shell.json (read by the native shell).
+ios and android: the page runs inside the native app. web: the page is opened
+in the phone's browser and can be added to the home screen.
 The source is never modified. Every literal patch in the config is anchored on
 a string from the prototype and fails loudly when the anchor is missing or
 ambiguous, so a redesign that moves things is caught here and not on the phone.
@@ -60,6 +62,18 @@ INLINE_MAX_FILE = 5 * 1024 * 1024
 INLINE_MAX_TOTAL = 30 * 1024 * 1024
 
 
+# Web mode: there is no native shell to set the class, and the page should be
+# adapted in the browser tab too, not only from the home screen.
+HEAD_SCRIPT_WEB = """<script>document.documentElement.classList.add('app-shell');</script>
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" href="icon.png" />"""
+
+TARGETS = ("ios", "android", "web")
+
+
 class AdaptError(Exception):
     pass
 
@@ -97,8 +111,11 @@ def frame_css(cfg):
     if frame.get("container"):
         out.append(":root.app-shell %s{padding:0;gap:0;margin:0;min-height:100dvh}" % frame["container"])
     if frame.get("device"):
-        out.append(":root.app-shell %s{width:100%%;max-width:none;height:100dvh;margin:0;border:0;border-radius:0;"
+        out.append(":root.app-shell %s{width:100%%;max-width:none;height:var(--shell-vh,100dvh);margin:0;border:0;border-radius:0;"
                    "box-shadow:none;padding-top:env(safe-area-inset-top)}" % frame["device"])
+        # web mode, keyboard up: shell.js sets --shell-vh/--shell-vy to the visible area
+        out.append(":root.app-shell.kb-open %s{position:fixed;left:0;right:0;top:var(--shell-vy,0px)}"
+                   % frame["device"])
     if frame.get("background"):
         out.append(":root.app-shell body{background:%s}" % frame["background"])
     hide = as_list(cfg.get("hide"))
@@ -115,8 +132,9 @@ def build_css(cfg):
     return no_breakout("\n".join(p for p in parts if p.strip()), "style")
 
 
-def build_js(cfg):
+def build_js(cfg, target="ios"):
     runtime = {
+        "mode": target,
         "keyboardTargets": as_list(cfg.get("keyboardTargets")),
         "themeSource": cfg.get("themeSource") or (cfg.get("frame") or {}).get("device"),
         "sheetDrag": cfg.get("sheetDrag"),
@@ -214,7 +232,9 @@ def insert_before(html, tag, block, last=True):
     return html[:idx] + block + "\n" + html[idx:]
 
 
-def adapt(html, cfg, base_dir=None):
+def adapt(html, cfg, base_dir=None, target="ios"):
+    if target not in TARGETS:
+        raise AdaptError("target must be one of %s" % ", ".join(TARGETS))
     if MARK_BEGIN in html:
         raise AdaptError("the source is already adapted; pass the original prototype")
     html = apply_patches(html, cfg.get("patches") or [])
@@ -224,10 +244,11 @@ def adapt(html, cfg, base_dir=None):
         html = inline_local_files(html, base_dir)
     html = set_viewport(html)
 
-    head_block = "%s\n%s\n<style>\n%s\n</style>\n%s" % (MARK_BEGIN, HEAD_SCRIPT, build_css(cfg), MARK_END)
+    head = HEAD_SCRIPT_WEB if target == "web" else HEAD_SCRIPT
+    head_block = "%s\n%s\n<style>\n%s\n</style>\n%s" % (MARK_BEGIN, head, build_css(cfg), MARK_END)
     html = insert_before(html, "head", head_block, last=False)
 
-    body_block = "%s\n%s\n%s" % (MARK_BEGIN, build_js(cfg), MARK_END)
+    body_block = "%s\n%s\n%s" % (MARK_BEGIN, build_js(cfg, target), MARK_END)
     html = insert_before(html, "body", body_block)
     return html
 
@@ -244,12 +265,13 @@ def main(argv=None):
     ap.add_argument("src")
     ap.add_argument("dest")
     ap.add_argument("--config")
+    ap.add_argument("--target", default="ios", choices=TARGETS)
     args = ap.parse_args(argv)
     try:
         cfg = load_config(args.config)
         with open(args.src, encoding="utf-8") as f:
             html = f.read()
-        out = adapt(html, cfg, base_dir=os.path.dirname(os.path.abspath(args.src)))
+        out = adapt(html, cfg, base_dir=os.path.dirname(os.path.abspath(args.src)), target=args.target)
     except (AdaptError, OSError, UnicodeDecodeError) as e:
         sys.exit("adapt: %s" % e)
     os.makedirs(os.path.dirname(os.path.abspath(args.dest)), exist_ok=True)
@@ -257,7 +279,7 @@ def main(argv=None):
         f.write(out)
     with open(os.path.join(os.path.dirname(os.path.abspath(args.dest)), "shell.json"), "w") as f:
         json.dump({"scroll": scroll_mode(cfg)}, f)
-    print("adapt: %s -> %s (scroll: %s)" % (args.src, args.dest, scroll_mode(cfg)))
+    print("adapt: %s -> %s (%s, scroll: %s)" % (args.src, args.dest, args.target, scroll_mode(cfg)))
 
 
 if __name__ == "__main__":

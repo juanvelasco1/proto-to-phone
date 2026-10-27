@@ -155,22 +155,63 @@ def boot_simulator(sim):
 
 # ── prepare: adapt + generate the Xcode project ─────────────────────────
 
-def prepare(m):
-    """Adapt the prototype into Web/ and regenerate the Xcode project."""
+def prepare(m, target="ios"):
+    """Adapt the prototype for one target and return the adapted page's path.
+    ios: App Web/ folder + Xcode project. android: the Android assets. web: site/."""
     src = m.get("source")
     if not src or not os.path.isfile(src):
         raise PhoneError("Prototype not found: %s" % src)
-    if not have("xcodegen"):
-        raise PhoneError("xcodegen is missing. Install it with: brew install xcodegen")
+    if target == "ios":
+        if not have("xcodegen"):
+            raise PhoneError("xcodegen is missing. Install it with: brew install xcodegen")
+        dest = os.path.join(m["dir"], "Web", "index.html")
+    elif target == "android":
+        dest = os.path.join(m["dir"], "android", "app", "src", "main", "assets", "web", "index.html")
+    elif target == "web":
+        dest = os.path.join(m["dir"], "site", "index.html")
+    else:
+        raise PhoneError("Unknown target %s" % target)
     cfg = os.path.join(m["dir"], "phone.config.json")
-    cmd = [sys.executable, "-I", os.path.join(HERE, "adapt.py"), src, os.path.join(m["dir"], "Web", "index.html")]
+    cmd = [sys.executable, "-I", os.path.join(HERE, "adapt.py"), src, dest, "--target", target]
     if os.path.isfile(cfg):
         cmd += ["--config", cfg]
     p = subprocess.run(cmd, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     if p.returncode != 0:
         raise PhoneError(p.stdout.strip())
     print(p.stdout.strip())
-    run(["xcodegen", "generate", "--quiet"], cwd=m["dir"])
+    if target == "ios":
+        run(["xcodegen", "generate", "--quiet"], cwd=m["dir"])
+    return dest
+
+
+# Per-platform records. Older projects stored one iOS record at the top level.
+def verified_for(m, platform):
+    v = m.get("verified") or {}
+    if "sha256" in v:
+        v = {"ios": v}
+    return (v.get(platform) or {}).get("sha256")
+
+
+def set_verified(m, platform, record):
+    v = m.get("verified") or {}
+    if "sha256" in v:
+        v = {"ios": v}
+    v[platform] = record
+    m["verified"] = v
+
+
+def device_confirmed(m, platform):
+    c = m.get("device_confirmed")
+    if isinstance(c, bool):
+        return c and platform == "ios"
+    return bool((c or {}).get(platform))
+
+
+def set_device_confirmed(m, platform):
+    c = m.get("device_confirmed")
+    c = {"ios": True} if c is True else ({} if not isinstance(c, dict) else c)
+    c[platform] = True
+    m["device_confirmed"] = c
 
 
 def built_app(m, kind):
@@ -210,13 +251,45 @@ def letter_colors(name):
     return "#%02X%02X%02X" % (round(r * 255), round(g * 255), round(b * 255)), "#FFFFFF"
 
 
+def solid_png(path, hex_color, size=1024):
+    """A plain square PNG of one color, written with the standard library only."""
+    import struct
+    import zlib
+    rgb = bytes(int(hex_color[i:i + 2], 16) for i in (1, 3, 5))
+    raw = b"".join(b"\x00" + rgb * size for _ in range(size))
+
+    def chunk(kind, data):
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+
+    png = (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", size, size, 8, 2, 0, 0, 0))
+           + chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b""))
+    with open(path, "wb") as f:
+        f.write(png)
+
+
 def make_icon(out, name, logo=None, background="#FFFFFF", fit="pad"):
-    """Write the 1024 icon: the person's logo, or their app's initial."""
+    """Write the icon: the person's logo, or their app's initial.
+
+    On macOS (swift available) the result is a 1024 PNG without alpha, logo
+    fitted or filled. Elsewhere a PNG logo is used as it is, and without a logo
+    the icon is a plain color square (no letter: there is no font renderer)."""
     swift = os.path.join(HERE, "icon.swift")
-    if not have("swift"):
-        raise PhoneError("swift is not available (comes with Xcode).")
     if not HEX_RE.match(background):
         raise PhoneError("Background must be a color like #FFFFFF.")
+    if not have("swift") or sys.platform != "darwin":
+        if logo is None:
+            solid_png(out, letter_colors(name)[0])
+            return
+        logo = os.path.abspath(os.path.expanduser(logo))
+        if not os.path.isfile(logo) or not logo.lower().endswith(".png"):
+            raise PhoneError("Without a Mac the logo must be a PNG file (square, 1024 px is best).")
+        if os.path.getsize(logo) > LOGO_MAX:
+            raise PhoneError("The logo file is larger than 20 MB.")
+        with open(logo, "rb") as f:
+            if f.read(8) != b"\x89PNG\r\n\x1a\n":
+                raise PhoneError("The logo is not a real PNG file.")
+        shutil.copyfile(logo, out)
+        return
     if logo is None:
         bg, fg = letter_colors(name)
         run(["swift", swift, "letter", out, name[:1], bg, fg])

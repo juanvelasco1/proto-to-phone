@@ -6,6 +6,7 @@ Without --logo the icon goes back to the app's initial. Takes effect on the next
 """
 import argparse
 import os
+import shutil
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -20,8 +21,13 @@ if __name__ == "__main__":
     args = ap.parse_args()
     try:
         m = pl.load_project(args.project)
-        icon = os.path.join(m["dir"], "App", "Assets.xcassets", "AppIcon.appiconset", "icon.png")
+        icon = os.path.join(m["dir"], "icon.png")
         pl.make_icon(icon, m["name"], logo=args.logo, background=args.logo_background, fit=args.logo_fit)
+        copies = [os.path.join(m["dir"], "App", "Assets.xcassets", "AppIcon.appiconset", "icon.png"),
+                  os.path.join(m["dir"], "android", "app", "src", "main", "res", "mipmap-xxxhdpi", "ic_launcher.png")]
+        for c in copies:
+            if os.path.isdir(os.path.dirname(c)):
+                shutil.copyfile(icon, c)
         m["logo"] = os.path.abspath(args.logo) if args.logo else None
         pl.save_project(m)
         print("set_icon: %s  <- show it to the person" % icon)

@@ -33,9 +33,11 @@ class RepoTest(unittest.TestCase):
         self.assertLess(len(text.splitlines()), 450)
 
     def test_template_placeholders_are_all_known(self):
-        known = {"__TEAM_ID__", "__BUNDLE_ID__", "__BUNDLE_PREFIX__", "__PRODUCT_NAME__", "__DISPLAY_NAME__"}
-        tpl = os.path.join(ROOT, "skills", "proto-to-phone", "template")
-        for base, _, names in os.walk(tpl):
+        known = {"__TEAM_ID__", "__BUNDLE_ID__", "__BUNDLE_PREFIX__", "__PRODUCT_NAME__", "__DISPLAY_NAME__",
+                 "__ANDROID_ID__", "__ANDROID_LABEL__"}
+        for tpl in (os.path.join(ROOT, "skills", "proto-to-phone", "template"),
+                    os.path.join(ROOT, "skills", "proto-to-phone", "template-android")):
+          for base, _, names in os.walk(tpl):
             for n in names:
                 if n.endswith(".png"):
                     continue

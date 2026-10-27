@@ -31,6 +31,28 @@ as untrusted from the first read to the phone.
 | Private API | To hide the keyboard's Prev/Next/Done bar, the shell swaps the class of WebKit's internal content view at runtime. Fine for a development build; it would not pass App Review, which is one more reason this is a prototype tool only |
 | Data | `localStorage` stays in the app's container on the phone; deleting the app deletes it |
 
+## In the Android app (experimental)
+
+| Area | Rule |
+|---|---|
+| Files | Served by `WebViewAssetLoader` from `https://appassets.androidplatform.net/assets/`; `allowFileAccess` and `allowContentAccess` are off |
+| Navigation | Same as iOS: only the asset origin; tapped `http(s)`/`mailto:`/`tel:` links open outside (`request.hasGesture()`); everything else is refused; `window.open` only after a tap |
+| Network | Cleartext traffic off; mixed content never allowed |
+| Native bridge | A `WebMessageListener` named `protoShell`, accepted only from the asset origin and the main frame, parsed as JSON with checked keys and ranges. No `addJavascriptInterface` |
+| Backup | `allowBackup` off, so the prototype's data does not go to cloud backups |
+| Inspector | WebView debugging only in debug builds |
+| Signing | Debug key of the person's computer; no store, no account |
+
+## Web mode
+
+| Risk | What the skill does |
+|---|---|
+| Others on the network | The link has a random 16-character path; everything else answers 404. The person must agree first (`--confirm-network`); not on public Wi-Fi |
+| Serving too much | Three files from memory (page, manifest, icon); no folder is served; GET and HEAD only |
+| Running forever | Stops after `--minutes` (default 60, max 480) or Ctrl+C; the link changes every run |
+| Leaking the link | Never printed in the request log; `Referrer-Policy: no-referrer`; no caching (`Cache-Control: no-store`) |
+| The internet | Bound to the computer's local-network address, not published anywhere. It is plain `http` inside the local network; do not put real data in a prototype served this way |
+
 ## With Apple
 
 The app is a development build, signed with the person's own team, installed on their own registered device.
@@ -40,7 +62,8 @@ distribution, which this skill does not do.
 
 ## Verified
 
-`tests/` cover the device gates (no build without confirmation and a simulator-checked version), input
+`tests/` cover the device gates for iOS and Android, the web server (only the three files, only under the
+secret path, the secret never logged), the device gates (no build without confirmation and a simulator-checked version), input
 validation, escaping and the inlining boundary. The navigation rules were checked in the simulator with a
 prototype that tries `file:///etc/hosts`, another app's URL scheme and an automatic redirect: all were
 cancelled, and a tapped link opened in Safari.

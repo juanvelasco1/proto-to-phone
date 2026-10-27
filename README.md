@@ -1,10 +1,18 @@
 # proto-to-phone
 
-**See an HTML prototype on a real iPhone, not only inside a mockup.**
+**See your prototype on a real phone, not only inside a mockup.**
 
 [Agent Skill](https://agentskills.io) for AI coding tools. It takes a single-file HTML prototype (from any AI
-builder or hand-made) and installs it on your iPhone as a small prototype app, adapted so it behaves like an
-app instead of a web page in a frame.
+builder or hand-made) and puts it on your phone, adapted so it behaves like an app instead of a web page in a
+frame.
+
+| Platform | Your computer | Your phone | Status |
+|---|---|---|---|
+| iOS app | Mac with Xcode | iPhone | Verified |
+| Android app | Mac, Windows or Linux | Android | **Experimental**: written, not yet built or run by the maintainers. Reports welcome |
+| Web (the phone's browser, local network) | Mac, Windows or Linux | Any phone on the same Wi-Fi | Verified on iPhone Safari; Android Chrome not yet |
+
+Windows or Linux with an iPhone: use web mode. Apple only allows building iPhone apps on a Mac.
 
 ## What it is, and what it is not
 
@@ -12,15 +20,16 @@ app instead of a web page in a frame.
 |---|---|
 | A way to judge a design on the device: real sizes, real keyboard, thumb reach, safe areas | A production app: no backend, no accounts, no push, no App Store |
 | General: any single HTML file (Open Design, Claude artifacts, v0, Lovable, Bolt, hand-written) | An HTML → Figma tool |
-| A development build for your own iPhone | A way to distribute the app to other people (that is TestFlight) |
+| A development build or a local web page for your own phone | A way to distribute the app to other people (TestFlight, Play Store) |
 | A local tool: nothing is uploaded, no telemetry | App Store material: the shell uses a runtime trick to hide the keyboard's Prev/Next bar that App Review would not accept |
 
 > Independent project. Not affiliated with, endorsed or sponsored by Apple Inc., Anthropic or any of the
-> prototype builders named here. iPhone, iOS and Xcode are trademarks of Apple Inc.
+> prototype builders named here. iPhone, iOS and Xcode are trademarks of Apple Inc.; Android is a trademark
+> of Google LLC.
 
 ## What it does
 
-1. **Checks your Mac** and stops, saying exactly what to fix, if something is missing.
+1. **Checks your computer**, per platform, and stops, saying exactly what to fix, if something is missing.
 2. **Asks for the app name and your logo** (PNG, JPG, HEIC, SVG or PDF) and shows you the icon.
 3. **Tells you what kind of design it is** (phone mockup, mobile web, responsive, desktop, tablet) and what can
    and cannot work on a phone, with a proposal for each finding: done by the skill, by you in your builder
@@ -29,33 +38,37 @@ app instead of a web page in a frame.
    keyboard; respects the safe areas; with the real keyboard up, only the input stays above it; sizes and
    places a floating tab bar like a native one; lets bottom sheets be dragged closed; makes the status bar
    follow the design.
-5. **Checks every screen in the iOS simulator** with screenshots and a fixed checklist.
-6. **Installs on your iPhone, after asking**, and only the version that passed the simulator check.
+5. **Checks every screen** before the phone, with screenshots and a fixed checklist: iOS simulator, Android
+   emulator, or Safari in the simulator for web mode.
+6. **Installs on your phone, after asking**, and only the version that passed the check. Web mode shares a
+   time-limited link on your local network, also after asking.
 7. **Re-syncs** with one command when the design changes.
 
 ## Requirements
 
-| Requirement | Why | If missing |
+| Requirement | For | If missing |
 |---|---|---|
-| A Mac | iOS apps are built on macOS | Not possible |
-| Xcode (full, opened once) with an iOS simulator | Build and check the app | Stops and tells you how to install |
-| [xcodegen](https://github.com/yonaskolb/XcodeGen) | Generate the Xcode project | Asks to run `brew install xcodegen` |
-| Python 3.8+ | The scripts | Stops |
-| The prototype as **one** `.html` file | Only one file is bundled | Stops; export it as a single file |
-| An Apple ID in Xcode (free works) | Install on the iPhone | Simulator only |
-| iPhone paired, unlocked, Developer Mode on | Install on the iPhone | Simulator only |
-| An AI tool that loads skills and runs commands | Drives the steps | Not possible |
+| Python 3.8+ | Everything | Stops |
+| The prototype as **one** `.html` file | Everything | Stops; export it as a single file |
+| An AI tool that loads skills and runs commands | Everything | Not possible |
+| Mac with Xcode (opened once), an iOS simulator, [xcodegen](https://github.com/yonaskolb/XcodeGen) | iOS app | No iOS app |
+| An Apple ID in Xcode (free works); iPhone paired, unlocked, Developer Mode on | iOS app on a real iPhone | Simulator only |
+| Java 17+, Android SDK with platform-tools, Gradle 8.9+ (Android Studio brings most of it) | Android app | No Android app |
+| An Android emulator, or a phone with USB debugging | Android app | No Android app |
+| Computer and phone on the same Wi-Fi | Web mode | No web mode |
 
-With a free Apple ID the app expires after 7 days; sync again to renew it. iOS only.
+`python3 skills/proto-to-phone/scripts/doctor.py` checks everything and says what to fix. With a free Apple ID
+the iOS app expires after 7 days; sync again to renew it.
 
 ## Security
 
-The prototype is treated as untrusted code. It never runs on your Mac, only in the simulator or on the phone.
-Inside the app it cannot read files outside its own folder, navigate away or open other apps on its own, or use
-plain `http://`. A link you tap opens in Safari, Mail or Phone. It talks to the native side only to report its
-background color and to close the keyboard. The scripts validate every name, id and path, run commands without
-a shell, never overwrite a folder that is not theirs, ask before installing tools or registering the app with
-Apple, and never publish anything. Details:
+The prototype is treated as untrusted code. It never runs on your computer, only in a simulator, an emulator
+or on the phone. Inside the apps it cannot read files outside its own folder, navigate away or open other
+apps on its own, or use plain `http://`. A link you tap opens in the browser, mail or phone app. It talks to
+the native side only to report its background color and to close the keyboard. Web mode serves three files
+from memory under a random link, on your local network only, for a limited time. The scripts validate every
+name, id and path, run commands without a shell, never overwrite a folder that is not theirs, ask before
+installing tools, installing on a phone or sharing on the network, and never publish anything. Details:
 [`references/security.md`](skills/proto-to-phone/references/security.md).
 
 ## Install
@@ -82,8 +95,8 @@ ln -s "$PWD/proto-to-phone/skills/proto-to-phone" ~/.claude/skills/proto-to-phon
 
 ## Use
 
-Ask your tool: *"Put ~/Downloads/prototype.html on my iPhone"*, *"pasa este prototipo a mi teléfono"*, or
-*"I changed the design, update the phone"*. It follows [`SKILL.md`](skills/proto-to-phone/SKILL.md) step by
+Ask your tool: *"Put ~/Downloads/prototype.html on my iPhone"*, *"pasa este prototipo a mi Android"*, *"open
+my prototype on my phone, I'm on Windows"*, or *"I changed the design, update the phone"*. It follows [`SKILL.md`](skills/proto-to-phone/SKILL.md) step by
 step. Projects are created in `~/ProtoPhone/<name>`.
 
 ## Checks

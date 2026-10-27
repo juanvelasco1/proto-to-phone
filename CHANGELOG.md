@@ -4,6 +4,24 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions: [Sem
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-27
+
+### Added
+
+- **Web mode** (`serve.py`): the adapted prototype opens in the phone's browser over the local network, from
+  macOS, Windows or Linux, on any phone; can be added to the home screen. Serves three files from memory under
+  a random link, for a limited time, after `--confirm-network`. The keyboard is handled through
+  `visualViewport` (the design is sized and pinned to the visible area).
+- **Android app, experimental** (`template-android/`, `android_lib.py`): Kotlin WebView shell with the same
+  rules as iOS (assets served by `WebViewAssetLoader`, no file access, navigation limited to the prototype,
+  tapped links outside, origin-limited message listener, insets for bars, cutout and keyboard). Not yet built
+  or run by the maintainers.
+- Platforms per project: `init.py --platforms ios,android,web`; `sync.py --platform`; `shots.py --platform
+  ios|android|web` (web: Safari in the iOS simulator). Gates and the checked version are tracked per platform.
+- `doctor.py` reports each platform separately, on any operating system.
+- A shared `icon.png` per project; without a Mac a PNG logo or a plain color icon.
+- `data-shell` on the root element (`ios`, `android`, `web`) to scope CSS to one platform.
+
 ## [0.1.0] - 2026-10-27
 
 First release.

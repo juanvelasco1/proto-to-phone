@@ -2,16 +2,22 @@ import XCTest
 
 /// Drives the real app (and the real iOS keyboard) in the simulator from a list
 /// of steps, and saves screenshots. Read by scripts/shots.py through the
-/// environment: PHONE_STEPS and PHONE_SHOTS.
+/// environment: PHONE_STEPS, PHONE_SHOTS and optionally PHONE_APP.
 final class ShellUITests: XCTestCase {
     private var app: XCUIApplication!
     private var out: URL!
 
     override func setUpWithError() throws {
         continueAfterFailure = true
-        app = XCUIApplication()
-        app.launchArguments = ["-resetState"]
-        app.launch()
+        // PHONE_APP drives another app instead (web mode: Safari, already open on the prototype).
+        if let other = ProcessInfo.processInfo.environment["PHONE_APP"], !other.isEmpty {
+            app = XCUIApplication(bundleIdentifier: other)
+            app.activate()
+        } else {
+            app = XCUIApplication()
+            app.launchArguments = ["-resetState"]
+            app.launch()
+        }
         let dir = ProcessInfo.processInfo.environment["PHONE_SHOTS"] ?? NSTemporaryDirectory() + "proto-phone-shots"
         out = URL(fileURLWithPath: dir)
         try FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)

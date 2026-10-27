@@ -18,7 +18,7 @@ All keys are optional. Unknown keys are ignored.
 | `js` | string or list | Extra JS, runs after `shell.js` |
 | `patches` | list | Literal edits to the prototype source: `{ what, find, replace, all?, optional? }` |
 
-Variables available to `css`: `--shell-top` and `--shell-bottom` (raw safe areas), `--shell-float-bottom`
+Scope a rule to one platform with `:root[data-shell="ios"|"android"|"web"]`. Variables available to `css`: `--shell-top` and `--shell-bottom` (raw safe areas), `--shell-float-bottom`
 (where a floating bar rests: `max(16px, inset - 10px)`).
 
 ## Worked example

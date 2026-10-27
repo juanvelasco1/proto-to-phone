@@ -11,14 +11,16 @@
     {
       "name": "proto-to-phone",
       "source": "./",
-      "description": "HTML prototype to an installable iPhone app, adapted to a real device and kept in sync when the prototype changes.",
-      "version": "0.1.0",
+      "description": "HTML prototype on a real phone: iPhone app, Android app (experimental) or the phone's browser, adapted to the device and kept in sync.",
+      "version": "0.2.0",
       "license": "MIT",
       "keywords": [
+        "android",
         "ios",
+        "iphone",
         "prototype",
-        "wkwebview",
-        "iphone"
+        "pwa",
+        "wkwebview"
       ]
     }
   ]

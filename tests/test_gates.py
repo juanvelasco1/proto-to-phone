@@ -11,6 +11,7 @@ from contextlib import redirect_stdout
 from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "skills", "proto-to-phone", "scripts"))
+import android_lib as al  # noqa: E402
 import phone_lib as pl  # noqa: E402
 import sync  # noqa: E402
 
@@ -34,6 +35,7 @@ class GateTest(unittest.TestCase):
         with open(self.html, "w") as f:
             f.write("<html>adapted</html>")
         self.meta = {"name": "T", "slug": "t", "product": "T", "bundle_id": "phone.abc.t", "team": "ABCDEFGHIJ",
+                     "platforms": ["ios"], "android_id": "phone.abc.t",
                      "source": os.path.join(d, "p.html"), "device_confirmed": False, "verified": None}
 
     def tearDown(self):
@@ -48,7 +50,8 @@ class GateTest(unittest.TestCase):
         argv = ["sync.py", "--project", self.tmp.name, "--target", "device"] + list(extra)
         with mock.patch.object(sys, "argv", argv), \
                 mock.patch.object(sync, "pick_device", return_value=DEVICE), \
-                mock.patch.object(pl, "prepare", return_value=None), \
+                mock.patch.object(pl, "prepare", return_value=self.html), \
+                mock.patch.object(sync, "pick_android", return_value={"serial": "FAKE", "model": "Pixel", "state": "device", "emulator": False}), \
                 mock.patch.object(pl, "run", side_effect=no_commands), \
                 redirect_stdout(io.StringIO()):
             with self.assertRaises(expect) as cm:
@@ -59,22 +62,46 @@ class GateTest(unittest.TestCase):
     def test_first_install_needs_confirmation(self):
         self.write_meta()
         msg = self.run_sync()
-        self.assertIn("First install on an iPhone", msg)
+        self.assertIn("First install on", msg)
         self.assertIn("--confirm-device", msg)
 
     def test_unchecked_version_is_refused(self):
         self.write_meta()
-        self.assertIn("has not been checked in the simulator", self.run_sync("--confirm-device"))
+        self.assertIn("has not been checked for ios", self.run_sync("--confirm-device"))
 
     def test_changed_version_is_refused(self):
         self.write_meta(device_confirmed=True, verified={"sha256": "0" * 64})
-        self.assertIn("has not been checked in the simulator", self.run_sync())
+        self.assertIn("has not been checked for ios", self.run_sync())
 
     def test_checked_and_confirmed_reaches_the_build(self):
         self.write_meta(device_confirmed=True, verified={"sha256": pl.sha256_file(self.html)})
         cmd = self.run_sync(expect=CommandRan)  # the first real command is the build
         self.assertIn("xcodebuild", cmd)
         self.assertIn("id=FAKE-UDID", cmd)
+
+    def test_new_per_platform_records(self):
+        self.write_meta(device_confirmed={"ios": True}, verified={"ios": {"sha256": pl.sha256_file(self.html)}})
+        self.assertIn("xcodebuild", self.run_sync(expect=CommandRan))
+
+    def test_android_needs_confirmation_and_check(self):
+        self.write_meta(platforms=["android"])
+        self.assertIn("--confirm-device", self.run_sync("--platform", "android"))
+        self.assertIn("has not been checked for android", self.run_sync("--platform", "android", "--confirm-device"))
+
+    def test_android_checked_and_confirmed_reaches_the_build(self):
+        self.write_meta(platforms=["android"], device_confirmed={"android": True},
+                        verified={"android": {"sha256": pl.sha256_file(self.html)}})
+        with mock.patch.object(al, "gradle", return_value="gradle"):
+            cmd = self.run_sync("--platform", "android", expect=CommandRan)
+        self.assertIn("assembleDebug", cmd)
+
+    def test_ios_confirmation_does_not_cover_android(self):
+        self.write_meta(platforms=["ios", "android"], device_confirmed={"ios": True})
+        self.assertIn("--confirm-device", self.run_sync("--platform", "android"))
+
+    def test_platform_must_be_chosen_when_both(self):
+        self.write_meta(platforms=["ios", "android"])
+        self.assertIn("--platform ios or --platform android", self.run_sync())
 
     def test_no_team_cannot_go_to_device(self):
         self.write_meta(team=None)
