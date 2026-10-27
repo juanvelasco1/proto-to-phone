@@ -1,0 +1,20 @@
+{
+  "name": "proto-to-phone",
+  "version": "0.1.0",
+  "description": "Put an HTML prototype on a real iPhone as an installable app, adapted to behave like a native one: safe areas, the real keyboard, a native-sized tab bar, no phone mockup. Checks it in the simulator first, then installs on the device.",
+  "author": {
+    "name": "juanvelasco1",
+    "url": "https://github.com/juanvelasco1"
+  },
+  "homepage": "https://github.com/juanvelasco1/proto-to-phone",
+  "repository": "https://github.com/juanvelasco1/proto-to-phone",
+  "license": "MIT",
+  "keywords": [
+    "ios",
+    "prototype",
+    "wkwebview",
+    "iphone",
+    "html-to-app",
+    "agent-skill"
+  ]
+}

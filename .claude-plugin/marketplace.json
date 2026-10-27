@@ -1,0 +1,25 @@
+{
+  "name": "proto-to-phone",
+  "owner": {
+    "name": "juanvelasco1",
+    "url": "https://github.com/juanvelasco1"
+  },
+  "metadata": {
+    "description": "proto-to-phone: HTML prototypes on a real iPhone."
+  },
+  "plugins": [
+    {
+      "name": "proto-to-phone",
+      "source": "./",
+      "description": "HTML prototype to an installable iPhone app, adapted to a real device and kept in sync when the prototype changes.",
+      "version": "0.1.0",
+      "license": "MIT",
+      "keywords": [
+        "ios",
+        "prototype",
+        "wkwebview",
+        "iphone"
+      ]
+    }
+  ]
+}
